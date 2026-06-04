@@ -3,8 +3,8 @@ const DEFAULTS = {
   geminiApiKey: "",
   enableGemini: false,
   clearanceRegex: "(u\\.s\\.\\s*citizen|security clearance|secret clearance|top secret|dod|green card required|lawful permanent resident)",
-  sponsorshipRejectRegex: "(no visa sponsorship|does not sponsor|no sponsorship available|must not require sponsorship|unable to sponsor|not open to sponsorship|no visa support|no h1b sponsorship|does not provide sponsorship|without visa sponsorship|without sponsorship|will not provide sponsorship|not eligible for sponsorship)",
-  sponsorshipAcceptRegex: "(visa sponsorship|h-1b sponsorship|sponsorship is available|eligible for sponsorship|will sponsor)"
+  sponsorshipRejectRegex: "(no visa sponsorship|does not sponsor|no (visa |h-?1b )?sponsorship available|must not require (visa |h-?1b )?sponsorship|unable to sponsor|unable to provide (visa |h-?1b )?sponsorship|not open to (visa |h-?1b )?sponsorship|no visa support|no h-?1b sponsorship|does not provide (visa |h-?1b )?sponsorship|without (visa |h-?1b )?sponsorship|will not provide (visa |h-?1b )?sponsorship|not eligible for (visa |h-?1b )?sponsorship|not offering (visa |h-?1b )?sponsorship|does not offer (visa |h-?1b )?sponsorship|cannot provide (visa |h-?1b )?sponsorship)",
+  sponsorshipAcceptRegex: "(visa sponsorship|h-?1b sponsorship|sponsorship is available|eligible for sponsorship|will sponsor)"
 };
 
 // Save options to chrome.storage.local

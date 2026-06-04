@@ -8,7 +8,7 @@ let sponsorRejectRegex = null;
 let sponsorAcceptRegex = null;
 
 // Hardcoded safeguard rejections to ensure false-positives are blocked even if local storage has outdated configs
-const HARDCODED_REJECT_REGEX = /(without visa sponsorship|without sponsorship|will not provide sponsorship|not eligible for sponsorship|no visa sponsorship|does not sponsor|no sponsorship available|unable to sponsor|not open to sponsorship|no visa support|no h1b sponsorship|does not provide sponsorship)/i;
+const HARDCODED_REJECT_REGEX = /(without (visa |h-?1b )?sponsorship|will not provide (visa |h-?1b )?sponsorship|not eligible for (visa |h-?1b )?sponsorship|no visa sponsorship|no h-?1b sponsorship|does not sponsor|no (visa |h-?1b )?sponsorship available|unable to sponsor|unable to provide (visa |h-?1b )?sponsorship|not open to (visa |h-?1b )?sponsorship|no visa support|does not provide (visa |h-?1b )?sponsorship|not offering (visa |h-?1b )?sponsorship|does not offer (visa |h-?1b )?sponsorship|cannot provide (visa |h-?1b )?sponsorship|must not require (visa |h-?1b )?sponsorship)/i;
 
 // Keep track of analyzed job IDs in memory to avoid duplicate parsing
 const parsedJobsCache = new Map();
@@ -389,8 +389,8 @@ async function init() {
     geminiApiKey: "",
     enableGemini: false,
     clearanceRegex: "(u\\.s\\.\\s*citizen|security clearance|secret clearance|top secret|dod|green card required|lawful permanent resident)",
-    sponsorshipRejectRegex: "(no visa sponsorship|does not sponsor|no sponsorship available|must not require sponsorship|unable to sponsor|not open to sponsorship|no visa support|no h1b sponsorship|does not provide sponsorship|without visa sponsorship|without sponsorship|will not provide sponsorship|not eligible for sponsorship)",
-    sponsorshipAcceptRegex: "(visa sponsorship|h-1b sponsorship|sponsorship is available|eligible for sponsorship|will sponsor)"
+    sponsorshipRejectRegex: "(no visa sponsorship|does not sponsor|no (visa |h-?1b )?sponsorship available|must not require (visa |h-?1b )?sponsorship|unable to sponsor|unable to provide (visa |h-?1b )?sponsorship|not open to (visa |h-?1b )?sponsorship|no visa support|no h-?1b sponsorship|does not provide (visa |h-?1b )?sponsorship|without (visa |h-?1b )?sponsorship|will not provide (visa |h-?1b )?sponsorship|not eligible for (visa |h-?1b )?sponsorship|not offering (visa |h-?1b )?sponsorship|does not offer (visa |h-?1b )?sponsorship|cannot provide (visa |h-?1b )?sponsorship)",
+    sponsorshipAcceptRegex: "(visa sponsorship|h-?1b sponsorship|sponsorship is available|eligible for sponsorship|will sponsor)"
   }, (items) => {
     config = items;
     
