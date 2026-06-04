@@ -1,0 +1,84 @@
+/* SkipClick - Job Radar Stylesheet */
+
+/* General badge wrapper styling */
+.skipclick-badge-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+  margin-bottom: 1px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Badge styling - Reduced size */
+.sc-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5px 5px; /* Reduced box size padding */
+  font-size: 9.5px; /* Slightly smaller text */
+  font-weight: 700; /* Bolder font for visibility */
+  border-radius: 4px; /* Slightly sharper corner for compact look */
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  width: max-content;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.sc-badge:hover {
+  transform: translateY(-0.5px);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Green Badge: H1B Sponsoring History - Brighter Green */
+.sc-badge-green {
+  background-color: #12b886; /* Vibrant mint/teal-green */
+  color: #ffffff;
+  border: 1px solid #0ca678;
+}
+
+/* Red Badge: DoD / Clearance / Citizen Only / No Sponsorship - Brighter Red */
+.sc-badge-red {
+  background-color: #fa5252; /* Vibrant coral red */
+  color: #ffffff;
+  border: 1px solid #e03131;
+}
+
+/* Yellow Badge: No H1B History - Vibrant Yellow */
+.sc-badge-yellow {
+  background-color: #fcc419; /* Vibrant yellow-gold */
+  color: #212529; /* Dark text for high contrast readability */
+  border: 1px solid #fab005;
+}
+
+/* Blue Badge: AI verified info */
+.sc-badge-blue {
+  background-color: #339af0;
+  color: #ffffff;
+  border: 1px solid #228be6;
+}
+
+/* Orange Badge: Flagged / Review details */
+.sc-badge-orange {
+  background-color: #fd7e14;
+  color: #ffffff;
+  border: 1px solid #f76707;
+}
+
+/* Subtle background overlay for non-viable cards */
+.skipclick-card-blocked {
+  background-color: rgba(250, 82, 82, 0.08) !important;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.skipclick-card-blocked:hover {
+  opacity: 1.0;
+}
+
+/* Subtle background overlay for verified sponsor cards */
+.skipclick-card-verified {
+  background-color: rgba(18, 184, 134, 0.05) !important;
+}
