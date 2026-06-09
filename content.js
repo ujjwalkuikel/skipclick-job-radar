@@ -376,7 +376,7 @@ function injectCopyButton(container, text) {
   });
 
   copyWrapper.appendChild(btn);
-  container.appendChild(copyWrapper);
+  container.prepend(copyWrapper);
 }
 
 // Locate description container, wait for content load, and run parsing

@@ -85,11 +85,13 @@
 
 /* Copy Description Button Container */
 .skipclick-copy-container {
-  position: absolute;
+  position: sticky;
   top: 12px;
-  right: 12px;
+  float: right;
+  margin-right: 12px;
   z-index: 999;
   pointer-events: none;
+  height: 0;
 }
 
 /* Styled glassmorphism copy button */
