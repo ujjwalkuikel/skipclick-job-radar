@@ -314,6 +314,71 @@ function scanJobCards() {
   });
 }
 
+// Injects a floating copy button into the job description container
+function injectCopyButton(container, text) {
+  // Ensure parent has position relative for absolute positioning
+  container.style.position = 'relative';
+
+  let copyWrapper = container.querySelector('.skipclick-copy-container');
+  if (copyWrapper) {
+    const btn = copyWrapper.querySelector('.skipclick-copy-btn');
+    if (btn) {
+      btn.dataset.textToCopy = text;
+      btn.classList.remove('copied');
+      btn.querySelector('span').innerText = 'Copy Description';
+      btn.querySelector('svg').innerHTML = `
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      `;
+    }
+    return;
+  }
+
+  copyWrapper = document.createElement('div');
+  copyWrapper.className = 'skipclick-copy-container';
+
+  const btn = document.createElement('button');
+  btn.className = 'skipclick-copy-btn';
+  btn.dataset.textToCopy = text;
+  
+  btn.innerHTML = `
+    <svg class="sc-copy-icon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+    <span>Copy Description</span>
+  `;
+
+  btn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const textToCopy = btn.dataset.textToCopy;
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      
+      btn.classList.add('copied');
+      btn.querySelector('span').innerText = 'Copied!';
+      btn.querySelector('svg').innerHTML = `
+        <polyline points="20 6 9 17 4 12"></polyline>
+      `;
+
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.querySelector('span').innerText = 'Copy Description';
+        btn.querySelector('svg').innerHTML = `
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        `;
+      }, 2000);
+    } catch (err) {
+      console.error('SkipClick: Failed to copy description:', err);
+    }
+  });
+
+  copyWrapper.appendChild(btn);
+  container.appendChild(copyWrapper);
+}
+
 // Locate description container, wait for content load, and run parsing
 function triggerDescriptionScan(card, jobId) {
   const descriptionSelectors = [
@@ -338,11 +403,16 @@ function triggerDescriptionScan(card, jobId) {
     
     // Only analyze if the URL's active jobId matches the card we clicked
     if (currentActiveId === jobId) {
-      const text = container.innerText.trim();
+      // Clone container to parse clean text without including our injected copy button
+      const clone = container.cloneNode(true);
+      const copyWrapper = clone.querySelector('.skipclick-copy-container');
+      if (copyWrapper) copyWrapper.remove();
+      const text = clone.innerText.trim();
       
       // Check if description has loaded and is not a default loading state
       if (text.length > 100) {
         analyzeJobDescription(card, text, jobId);
+        injectCopyButton(container, text);
       } else if (attempts < 15) {
         attempts++;
         setTimeout(checkText, 150);
