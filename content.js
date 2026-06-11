@@ -6,6 +6,7 @@ let config = {};
 let clearanceRegex = null;
 let sponsorRejectRegex = null;
 let sponsorAcceptRegex = null;
+let currentDescriptionJobId = null;
 
 // Hardcoded safeguard rejections to ensure false-positives are blocked even if local storage has outdated configs
 const HARDCODED_REJECT_REGEX = /(without (visa |h-?1b )?sponsorship|will not provide (visa |h-?1b )?sponsorship|not eligible for (visa |h-?1b )?sponsorship|no visa sponsorship|no h-?1b sponsorship|does not sponsor|no (visa |h-?1b )?sponsorship available|unable to sponsor|unable to provide (visa |h-?1b )?sponsorship|not open to (visa |h-?1b )?sponsorship|no visa support|does not provide (visa |h-?1b )?sponsorship|not offering (visa |h-?1b )?sponsorship|does not offer (visa |h-?1b )?sponsorship|cannot provide (visa |h-?1b )?sponsorship|must not require (visa |h-?1b )?sponsorship)/i;
@@ -126,7 +127,7 @@ function injectBadge(card, text, className) {
 
 // Perform instant offline checks based on company name
 function checkCompanySponsorship(card) {
-  const { companyName } = getCardMetadata(card);
+  const { companyName } = card ? getCardMetadata(card) : getDetailsPaneMetadata();
   if (!companyName) return;
 
   const normalized = normalizeCompanyName(companyName);
@@ -154,23 +155,194 @@ function checkCompanySponsorship(card) {
     }
   }
 
-  if (stats) {
-    const totalApprovals = stats[0];
-    const groupSuffix = isGroupMatch ? " (Group)" : "";
-    injectBadge(card, `H1B: ${totalApprovals}${groupSuffix}`, "sc-badge-green");
-    card.classList.add('skipclick-card-verified');
+  const badgeText = stats ? `H1B: ${stats[0]}${isGroupMatch ? " (Group)" : ""}` : "No H1B History";
+  const badgeClass = stats ? "sc-badge-green" : "sc-badge-yellow";
+
+  if (card) {
+    injectBadge(card, badgeText, badgeClass);
+    if (stats) {
+      card.classList.add('skipclick-card-verified');
+    }
+  }
+  
+  // Also inject on the top card!
+  injectTopCardBadge(badgeText, badgeClass);
+}
+
+// Locate the main job details top card component
+function getTopCard() {
+  return document.querySelector(
+    '.job-details-jobs-unified-top-card, ' +
+    '.jobs-unified-top-card, ' +
+    '.jobs-details-top-card, ' +
+    '.jobs-box'
+  );
+}
+
+// Extract company name and job title from the job details pane
+function getDetailsPaneMetadata() {
+  const topCard = getTopCard();
+  if (!topCard) return { companyName: "", jobTitle: "" };
+
+  const companyEl = topCard.querySelector(
+    '.job-details-jobs-unified-top-card__company-name, ' +
+    '.jobs-unified-top-card__company-name, ' +
+    '.jobs-details-top-card__company-url, ' +
+    '[class*="unified-top-card__company-name"] a, ' +
+    'a[href*="/company/"], ' +
+    '[class*="company-name"]'
+  );
+  
+  const titleEl = topCard.querySelector(
+    '.job-details-jobs-unified-top-card__job-title, ' +
+    '.jobs-unified-top-card__job-title, ' +
+    '[class*="unified-top-card__job-title"], ' +
+    'h1, h2, ' +
+    '[class*="job-title"]'
+  );
+
+  const companyName = companyEl ? companyEl.innerText.trim() : "";
+  const jobTitle = titleEl ? titleEl.innerText.trim() : "";
+  return { companyName, jobTitle };
+}
+
+// Get or create the badge container in the top card
+function getTopCardBadgeContainer() {
+  const topCard = getTopCard();
+  if (!topCard) return null;
+
+  let container = topCard.querySelector('.skipclick-top-card-badge-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'skipclick-badge-container skipclick-top-card-badge-container';
+    
+    // Find target area to append the container inside the top card
+    const targetArea = topCard.querySelector(
+      '.job-details-jobs-unified-top-card__primary-description, ' +
+      '.jobs-unified-top-card__primary-description, ' +
+      '[class*="primary-description"], ' +
+      '.job-details-jobs-unified-top-card__company-name, ' +
+      '.jobs-unified-top-card__company-name'
+    );
+    if (targetArea) {
+      targetArea.appendChild(container);
+    } else {
+      topCard.appendChild(container);
+    }
+  }
+  return container;
+}
+
+// Inject a single badge into the top card
+function injectTopCardBadge(text, className) {
+  const container = getTopCardBadgeContainer();
+  if (!container) return;
+
+  const existingBadges = Array.from(container.querySelectorAll('.sc-badge'));
+  if (existingBadges.some(b => b.innerText === text)) return;
+
+  const badge = document.createElement('span');
+  badge.className = `sc-badge ${className}`;
+  badge.innerText = text;
+  container.appendChild(badge);
+}
+
+// Inject badge to both sidebar card (if present) and top card
+function injectBadgeBoth(card, text, className) {
+  if (card) {
+    injectBadge(card, text, className);
+  }
+  injectTopCardBadge(text, className);
+}
+
+// Remove badge from both sidebar card (if present) and top card
+function removeBadgeBoth(card, text) {
+  if (card) {
+    const container = getOrCreateBadgeContainer(card);
+    if (container) {
+      const badge = Array.from(container.querySelectorAll('.sc-badge')).find(b => b.innerText === text);
+      if (badge) badge.remove();
+    }
+  }
+  const tcContainer = getTopCardBadgeContainer();
+  if (tcContainer) {
+    const badge = Array.from(tcContainer.querySelectorAll('.sc-badge')).find(b => b.innerText === text);
+    if (badge) badge.remove();
+  }
+}
+
+// Apply Gemini AI analysis results
+function applyGeminiResult(card, res) {
+  if (res.clearance_required) {
+    injectBadgeBoth(card, "DoD / Citizen Only", "sc-badge-red");
+    if (card) card.classList.add('skipclick-card-blocked');
+  }
+  
+  if (res.sponsorship_available === false) {
+    injectBadgeBoth(card, "Explicit No (AI)", "sc-badge-red");
+    if (card) card.classList.add('skipclick-card-blocked');
+  } else if (res.sponsorship_available === true) {
+    injectBadgeBoth(card, "Sponsor (AI)", "sc-badge-green");
+    if (card) {
+      card.classList.remove('skipclick-card-blocked');
+      card.classList.add('skipclick-card-verified');
+    }
   } else {
-    injectBadge(card, "No H1B History", "sc-badge-yellow");
+    injectBadgeBoth(card, "Unknown Visa", "sc-badge-gray");
+  }
+}
+
+// Reinject badges from cache to top card
+function reinjectBadges(card, status) {
+  const { companyName } = card ? getCardMetadata(card) : getDetailsPaneMetadata();
+  if (companyName) {
+    const normalized = normalizeCompanyName(companyName);
+    let stats = sponsorMap[normalized];
+    let isGroupMatch = false;
+    if (!stats) {
+      const words = normalized.split(' ');
+      if (words.length >= 2) {
+        const prefix2 = words[0] + ' ' + words[1];
+        const matchedKeys = prefixMap[prefix2];
+        if (matchedKeys && matchedKeys.length > 0) {
+          let totalApprovals = 0;
+          for (const key of matchedKeys) {
+            totalApprovals += sponsorMap[key][0];
+          }
+          stats = [totalApprovals];
+          isGroupMatch = true;
+        }
+      }
+    }
+    const badgeText = stats ? `H1B: ${stats[0]}${isGroupMatch ? " (Group)" : ""}` : "No H1B History";
+    const badgeClass = stats ? "sc-badge-green" : "sc-badge-yellow";
+    injectTopCardBadge(badgeText, badgeClass);
+  }
+
+  if (status.clearance) {
+    injectTopCardBadge("DoD / Citizen Only", "sc-badge-red");
+  } else {
+    if (status.noSponsor) {
+      injectTopCardBadge("Explicit No Visa", "sc-badge-red");
+    } else if (status.yesSponsor) {
+      injectTopCardBadge("Sponsor Friendly", "sc-badge-green");
+    }
+  }
+
+  if (status.geminiResult) {
+    applyGeminiResult(card, status.geminiResult);
   }
 }
 
 // Analyzes the loaded job description text and injects badge updates
 function analyzeJobDescription(card, text, jobId) {
   if (parsedJobsCache.has(jobId) && parsedJobsCache.get(jobId).localChecked) {
-    return; // Already processed locally
+    const status = parsedJobsCache.get(jobId);
+    reinjectBadges(card, status);
+    return;
   }
 
-  const { companyName, jobTitle } = getCardMetadata(card);
+  const { companyName, jobTitle } = card ? getCardMetadata(card) : getDetailsPaneMetadata();
   let status = {
     clearance: false,
     noSponsor: false,
@@ -184,23 +356,25 @@ function analyzeJobDescription(card, text, jobId) {
   
   // 1. If it's a DoD / Citizen Only role, we flag it immediately and stop
   if (status.clearance) {
-    injectBadge(card, "DoD / Citizen Only", "sc-badge-red");
-    card.classList.add('skipclick-card-blocked');
+    injectBadgeBoth(card, "DoD / Citizen Only", "sc-badge-red");
+    if (card) card.classList.add('skipclick-card-blocked');
   } else {
-    // 2. Check for explicit visa rejection (using both user custom regex and the hardcoded safeguard regex)
+    // 2. Check for explicit visa rejection
     const isRejected = (sponsorRejectRegex && sponsorRejectRegex.test(text)) || HARDCODED_REJECT_REGEX.test(text);
 
     if (isRejected) {
       status.noSponsor = true;
-      injectBadge(card, "Explicit No Visa", "sc-badge-red");
-      card.classList.add('skipclick-card-blocked');
+      injectBadgeBoth(card, "Explicit No Visa", "sc-badge-red");
+      if (card) card.classList.add('skipclick-card-blocked');
     } 
     // 3. Check if they explicitly accept sponsorship (Only if NOT explicitly rejected)
     else if (sponsorAcceptRegex && sponsorAcceptRegex.test(text)) {
       status.yesSponsor = true;
-      injectBadge(card, "Sponsor Friendly", "sc-badge-green");
-      card.classList.remove('skipclick-card-blocked');
-      card.classList.add('skipclick-card-verified');
+      injectBadgeBoth(card, "Sponsor Friendly", "sc-badge-green");
+      if (card) {
+        card.classList.remove('skipclick-card-blocked');
+        card.classList.add('skipclick-card-verified');
+      }
     }
   }
 
@@ -210,59 +384,54 @@ function analyzeJobDescription(card, text, jobId) {
     clearance: status.clearance,
     noSponsor: status.noSponsor,
     yesSponsor: status.yesSponsor,
-    geminiChecked: parsedJobsCache.get(jobId)?.geminiChecked || false
+    geminiChecked: parsedJobsCache.get(jobId)?.geminiChecked || false,
+    geminiResult: parsedJobsCache.get(jobId)?.geminiResult || null
   });
 
   // If local checks are ambiguous and Gemini fallback is enabled, call Gemini via background script
   const isAmbiguous = !status.clearance && !status.noSponsor && !status.yesSponsor;
+  const cachedGemini = parsedJobsCache.get(jobId)?.geminiResult;
   const alreadyGeminiChecked = parsedJobsCache.get(jobId)?.geminiChecked;
 
-  if (isAmbiguous && config.enableGemini && config.geminiApiKey && !alreadyGeminiChecked) {
-    // Flag immediately to prevent double query issues while network request runs
-    parsedJobsCache.get(jobId).geminiChecked = true;
+  if (isAmbiguous && config.enableGemini && config.geminiApiKey) {
+    if (cachedGemini) {
+      applyGeminiResult(card, cachedGemini);
+    } else if (!alreadyGeminiChecked) {
+      // Flag immediately to prevent double query issues while network request runs
+      parsedJobsCache.get(jobId).geminiChecked = true;
 
-    injectBadge(card, "Scanning AI...", "sc-badge-blue");
+      injectBadgeBoth(card, "Scanning AI...", "sc-badge-blue");
 
-    chrome.runtime.sendMessage({
-      action: "queryGemini",
-      data: { companyName, jobTitle, description: text }
-    }, (response) => {
-      // Remove scanning badge
-      const container = getOrCreateBadgeContainer(card);
-      if (container) {
-        const scanningBadge = Array.from(container.querySelectorAll('.sc-badge')).find(b => b.innerText === "Scanning AI...");
-        if (scanningBadge) scanningBadge.remove();
-      }
+      chrome.runtime.sendMessage({
+        action: "queryGemini",
+        data: { companyName, jobTitle, description: text }
+      }, (response) => {
+        // Remove scanning badge
+        removeBadgeBoth(card, "Scanning AI...");
 
-      if (response && response.success) {
-        const res = response.result;
-        
-        if (res.clearance_required) {
-          injectBadge(card, "DoD / Citizen Only", "sc-badge-red");
-          card.classList.add('skipclick-card-blocked');
-        }
-        
-        if (res.sponsorship_available === false) {
-          injectBadge(card, "Explicit No (AI)", "sc-badge-red");
-          card.classList.add('skipclick-card-blocked');
-        } else if (res.sponsorship_available === true) {
-          injectBadge(card, "Sponsor (AI)", "sc-badge-green");
-          card.classList.remove('skipclick-card-blocked');
-          card.classList.add('skipclick-card-verified');
+        if (response && response.success) {
+          const res = response.result;
+          parsedJobsCache.get(jobId).geminiResult = res;
+          applyGeminiResult(card, res);
         } else {
-          injectBadge(card, "Unknown Visa", "sc-badge-gray");
+          console.error("SkipClick Gemini Error:", response?.error);
+          injectBadgeBoth(card, "AI Radar Error", "sc-badge-orange");
         }
-      } else {
-        console.error("SkipClick Gemini Error:", response?.error);
-        injectBadge(card, "AI Radar Error", "sc-badge-orange");
-      }
-    });
+      });
+    }
   }
 }
 
 // Scans all job cards currently in the DOM
-// Scans all job cards currently in the DOM
 function scanJobCards() {
+  // Only run scanning if we are on a LinkedIn page containing jobs or search
+  const isJobsPage = window.location.pathname.includes('/jobs') || 
+                     window.location.pathname.includes('/search');
+  if (!isJobsPage) {
+    currentDescriptionJobId = null; // Reset state when navigating away
+    return;
+  }
+
   const cardSelectors = [
     '.jobs-search-results__list-item',
     '.job-card-container',
@@ -280,10 +449,8 @@ function scanJobCards() {
     }
   }
 
-  const activeJobId = getActiveJobId();
-
+  // 1. Process local database check for each card in the sidebar list
   jobCards.forEach(card => {
-    // Process local sponsor database check
     const { jobId } = getCardMetadata(card);
     if (!jobId) return;
 
@@ -291,27 +458,39 @@ function scanJobCards() {
       card.dataset.skipclickLocalProcessed = "true";
       checkCompanySponsorship(card);
     }
-
-    // If this card is the currently active one (already loaded on right pane), trigger description analysis
-    if (activeJobId === jobId && !card.dataset.skipclickDescriptionProcessed) {
-      card.dataset.skipclickDescriptionProcessed = "true";
-      setTimeout(() => {
-        triggerDescriptionScan(card, jobId);
-      }, 500);
-    }
-
-    // Bind click listener to scan descriptions on-demand (disabled hover scans to avoid race conditions)
-    if (!card.dataset.skipclickListenersBound) {
-      card.dataset.skipclickListenersBound = "true";
-
-      card.addEventListener('click', () => {
-        card.dataset.skipclickDescriptionProcessed = "true";
-        setTimeout(() => {
-          triggerDescriptionScan(card, jobId);
-        }, 200);
-      });
-    }
   });
+
+  // 2. Track the active job and scan description if changed or missing copy button
+  const activeJobId = getActiveJobId();
+  if (activeJobId) {
+    // Find the description container
+    let hasCopyButton = false;
+    let descContainer = null;
+    const descriptionSelectors = [
+      '.jobs-description__content',
+      '.jobs-box__html-content',
+      '[class*="jobs-description-content"]',
+      '.jobs-description'
+    ];
+    for (const sel of descriptionSelectors) {
+      descContainer = document.querySelector(sel);
+      if (descContainer) break;
+    }
+
+    if (descContainer) {
+      hasCopyButton = descContainer.querySelector('.skipclick-copy-container') !== null;
+    }
+
+    if (activeJobId !== currentDescriptionJobId || !hasCopyButton) {
+      // Find matching card in the list (if any)
+      const activeCard = jobCards.find(card => {
+        const { jobId } = getCardMetadata(card);
+        return jobId === activeJobId;
+      });
+
+      triggerDescriptionScan(activeCard, activeJobId);
+    }
+  }
 }
 
 // Injects a floating copy button into the job description container
@@ -379,7 +558,7 @@ function injectCopyButton(container, text) {
   container.prepend(copyWrapper);
 }
 
-// Locate description container, wait for content load, and run parsing
+// Locate description container, check content load, and run parsing
 function triggerDescriptionScan(card, jobId) {
   const descriptionSelectors = [
     '.jobs-description__content',
@@ -394,37 +573,25 @@ function triggerDescriptionScan(card, jobId) {
     if (container) break;
   }
 
+  // If description container is not in DOM yet, return and wait for next MutationObserver cycle.
   if (!container) return;
 
-  // Poll briefly for active jobId in URL to match card jobId, and text to load
-  let attempts = 0;
-  const checkText = () => {
-    const currentActiveId = getActiveJobId();
+  const currentActiveId = getActiveJobId();
+  // Only analyze if the URL's active jobId matches the card/job we are scanning
+  if (currentActiveId === jobId) {
+    // Clone container to parse clean text without including our injected copy button
+    const clone = container.cloneNode(true);
+    const copyWrapper = clone.querySelector('.skipclick-copy-container');
+    if (copyWrapper) copyWrapper.remove();
+    const text = clone.innerText.trim();
     
-    // Only analyze if the URL's active jobId matches the card we clicked
-    if (currentActiveId === jobId) {
-      // Clone container to parse clean text without including our injected copy button
-      const clone = container.cloneNode(true);
-      const copyWrapper = clone.querySelector('.skipclick-copy-container');
-      if (copyWrapper) copyWrapper.remove();
-      const text = clone.innerText.trim();
-      
-      // Check if description has loaded and is not a default loading state
-      if (text.length > 100) {
-        analyzeJobDescription(card, text, jobId);
-        injectCopyButton(container, text);
-      } else if (attempts < 15) {
-        attempts++;
-        setTimeout(checkText, 150);
-      }
-    } else if (attempts < 15) {
-      // The active job ID in the URL hasn't matched yet, keep waiting
-      attempts++;
-      setTimeout(checkText, 150);
+    // Check if description has loaded and is not a default loading state
+    if (text.length > 100) {
+      analyzeJobDescription(card, text, jobId);
+      injectCopyButton(container, text);
+      currentDescriptionJobId = jobId; // Mark as successfully scanned!
     }
-  };
-  
-  checkText();
+  }
 }
 
 // Helper to construct index of 2-word prefixes for fuzzy group matching
@@ -477,9 +644,9 @@ async function init() {
 
     // Start watching the page body for dynamic updates (SPA navigation & page loads)
     const observer = new MutationObserver((mutations) => {
-      // Limit layout scanner frequency using a micro debounce
+      // Limit layout scanner frequency using a micro debounce (100ms for responsiveness)
       if (window.scanTimeout) clearTimeout(window.scanTimeout);
-      window.scanTimeout = setTimeout(scanJobCards, 200);
+      window.scanTimeout = setTimeout(scanJobCards, 100);
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
