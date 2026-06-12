@@ -2,7 +2,7 @@
 const DEFAULTS = {
   geminiApiKey: "",
   enableGemini: false,
-  clearanceRegex: "(u\\.s\\.\\s*citizen|security clearance|secret clearance|top secret|ts/sci|ts\\\\s+sci|\\\\bsci\\\\b|public trust|\\\\bdod\\\\b|green card required|lawful permanent resident|active clearance|polygraph|\\\\bssbi\\\\b)",
+  clearanceRegex: "(u\\.s\\.\\s*citizen(ship)?|us\\\\s+citizen(ship)?|security clearance|secret clearance|top secret|ts/sci|ts\\\\s+sci|\\\\bsci\\\\b|public trust|\\\\bdod\\\\b|green card required|lawful permanent resident|active clearance|polygraph|\\\\bssbi\\\\b)",
   sponsorshipRejectRegex: "(no visa sponsorship|does not sponsor|no (visa |h-?1b )?sponsorship available|must not require (visa |h-?1b )?sponsorship|unable to sponsor|unable to provide (visa |h-?1b )?sponsorship|not open to (visa |h-?1b )?sponsorship|no visa support|no h-?1b sponsorship|does not provide (visa |h-?1b )?sponsorship|without (visa |h-?1b )?sponsorship|will not provide (visa |h-?1b )?sponsorship|not eligible for (visa |h-?1b )?sponsorship|not offering (visa |h-?1b )?sponsorship|does not offer (visa |h-?1b )?sponsorship|cannot provide (visa |h-?1b )?sponsorship)",
   sponsorshipAcceptRegex: "(visa sponsorship|h-?1b sponsorship|sponsorship is available|eligible for sponsorship|will sponsor)"
 };
@@ -35,10 +35,11 @@ function saveOptions(e) {
 function restoreOptions() {
   chrome.storage.local.get(DEFAULTS, (items) => {
     const OLD_DEFAULT_CLEARANCE = "(u\\.s\\.\\s*citizen|security clearance|secret clearance|top secret|dod|green card required|lawful permanent resident)";
-    const NEW_DEFAULT_CLEARANCE = "(u\\.s\\.\\s*citizen|security clearance|secret clearance|top secret|ts/sci|ts\\\\s+sci|\\\\bsci\\\\b|public trust|\\\\bdod\\\\b|green card required|lawful permanent resident|active clearance|polygraph|\\\\bssbi\\\\b)";
+    const INTERMEDIATE_DEFAULT_CLEARANCE = "(u\\.s\\.\\s*citizen|security clearance|secret clearance|top secret|ts/sci|ts\\\\s+sci|\\\\bsci\\\\b|public trust|\\\\bdod\\\\b|green card required|lawful permanent resident|active clearance|polygraph|\\\\bssbi\\\\b)";
+    const NEW_DEFAULT_CLEARANCE = "(u\\.s\\.\\s*citizen(ship)?|us\\\\s+citizen(ship)?|security clearance|secret clearance|top secret|ts/sci|ts\\\\s+sci|\\\\bsci\\\\b|public trust|\\\\bdod\\\\b|green card required|lawful permanent resident|active clearance|polygraph|\\\\bssbi\\\\b)";
 
-    // Migrate from old default if applicable
-    if (items.clearanceRegex === OLD_DEFAULT_CLEARANCE) {
+    // Migrate from old or intermediate default if applicable
+    if (items.clearanceRegex === OLD_DEFAULT_CLEARANCE || items.clearanceRegex === INTERMEDIATE_DEFAULT_CLEARANCE) {
       items.clearanceRegex = NEW_DEFAULT_CLEARANCE;
       chrome.storage.local.set({ clearanceRegex: NEW_DEFAULT_CLEARANCE });
     }
